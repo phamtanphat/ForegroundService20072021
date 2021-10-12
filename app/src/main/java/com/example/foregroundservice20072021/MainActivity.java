@@ -1,6 +1,7 @@
 package com.example.foregroundservice20072021;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import android.app.ActivityManager;
 import android.content.Context;
@@ -25,7 +26,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent(MainActivity.this,MyService.class);
-                startService(intent);
+                ContextCompat.startForegroundService(MainActivity.this,intent);
             }
         });
     }
