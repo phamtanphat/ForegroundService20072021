@@ -6,10 +6,15 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Intent;
 import android.os.Build;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
+import android.os.Looper;
+import android.os.Message;
 import android.util.Log;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
@@ -17,6 +22,9 @@ public class MyService extends Service {
 
     NotificationManager notificationManager;
     Notification notification;
+    Thread thread;
+    Handler handler;
+    Looper looper;
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
@@ -30,11 +38,43 @@ public class MyService extends Service {
         notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         notification = createNotification();
         startForeground(1,notification);
+
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Toast.makeText(this, "onStartCommand", Toast.LENGTH_SHORT).show();
+        thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                Looper.prepare();
+                looper = Looper.myLooper();
+                handler = new Handler(looper){
+                    @Override
+                    public void handleMessage(@NonNull Message msg) {
+                        super.handleMessage(msg);
+                        switch (msg.what){
+                            case 0 :
+                                Toast.makeText(MyService.this, msg.arg1 + "", Toast.LENGTH_SHORT).show();
+                                break;
+                        }
+                        looper.quit();
+                    }
+                };
+                for (int i = 0; i < 50; i++) {
+                    Log.d("BBB",i + "");
+                }
+                Message message = handler.obtainMessage();
+                message.what = 0;
+                message.arg1 = 10000000;
+                handler.sendMessage(message);
+                Looper.loop();
+
+                Log.d("BBB","The end");
+            }
+        });
+        thread.start();
+
+
         return START_NOT_STICKY;
     }
 
