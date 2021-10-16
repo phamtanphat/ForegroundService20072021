@@ -27,7 +27,7 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View v) {
                 Song song = new Song(R.raw.yeulacuoi,"Yêu là cưới");
                 Intent intent = new Intent(MainActivity.this,MyService.class);
-                intent.putExtra()
+                intent.putExtra("song",song);
                 ContextCompat.startForegroundService(MainActivity.this,intent);
             }
         });

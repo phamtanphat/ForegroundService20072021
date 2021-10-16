@@ -6,6 +6,7 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -23,6 +24,7 @@ public class MyService extends Service {
 
     NotificationManager notificationManager;
     Notification notification;
+    MediaPlayer mMediaPlayer;
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
@@ -36,12 +38,31 @@ public class MyService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null){
+            Song song = intent.getParcelableExtra("song");
+        }
         return START_NOT_STICKY;
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
+    }
+
+    private void startMp3(Song song) {
+        if (mMediaPlayer == null){
+            mMediaPlayer = MediaPlayer.create(this, song.resourceMp3);
+        }else if (mMediaPlayer.isPlaying()){
+            mMediaPlayer.stop();
+            mMediaPlayer.release();
+            mMediaPlayer = MediaPlayer.create(this, song.resourceMp3);
+        }
+        mMediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+            @Override
+            public void onPrepared(MediaPlayer mediaPlayer) {
+                mediaPlayer.start();
+            }
+        });
     }
 
     private Notification createNotification(Context context, long duration , String title) {
