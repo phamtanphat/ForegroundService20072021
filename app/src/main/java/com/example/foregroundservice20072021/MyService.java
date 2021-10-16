@@ -3,10 +3,12 @@ package com.example.foregroundservice20072021;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.media.MediaPlayer;
+import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -25,10 +27,17 @@ public class MyService extends Service {
     NotificationManager notificationManager;
     Notification notification;
     MediaPlayer mMediaPlayer;
+    OnListenCurrentTimeSong mOnListenCurrentTimeSong;
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        return null;
+        return new MyBind();
+    }
+
+    class MyBind extends Binder{
+        public MyService getService(){
+            return MyService.this;
+        }
     }
 
     @Override
@@ -40,6 +49,22 @@ public class MyService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null){
             Song song = intent.getParcelableExtra("song");
+            startMp3(song);
+            notification = createNotification(this, 0,song.name);
+            startForeground(1,notification);
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    int currentTime = mMediaPlayer.getCurrentPosition();
+                    if (currentTime <= mMediaPlayer.getDuration()){
+                        notification = createNotification(getApplicationContext(),currentTime , song.name);
+                        new Handler().postDelayed(this,1000);
+                        if (mOnListenCurrentTimeSong != null){
+                            mOnListenCurrentTimeSong.onCurrentTime(currentTime);
+                        }
+                    }
+                }
+            },1000);
         }
         return START_NOT_STICKY;
     }
@@ -66,9 +91,20 @@ public class MyService extends Service {
     }
 
     private Notification createNotification(Context context, long duration , String title) {
+
+        Intent intent = new Intent(this,MainActivity.class);
+
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT
+        );
+
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, "CHANNEL_ID");
         builder.setSmallIcon(R.drawable.ic_launcher_foreground);
         builder.setContentTitle(title);
+        builder.addAction(R.mipmap.ic_launcher,"Open App",pendingIntent);
 
         long minus = (duration / 60000) ;
         long second = (duration % 60000) / 1000;
@@ -86,6 +122,8 @@ public class MyService extends Service {
         }
         return builder.build();
     }
-
+    public void setOnListCurrentTimeSong(OnListenCurrentTimeSong onListCurrentTimeSong){
+        this.mOnListenCurrentTimeSong = onListCurrentTimeSong;
+    }
 
 }
