@@ -22,9 +22,10 @@ public class MyService extends Service {
 
     NotificationManager notificationManager;
     Notification notification;
-    Thread thread;
     Handler handler;
     Looper looper;
+    MyHandlerThread handlerThread;
+
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
@@ -37,42 +38,24 @@ public class MyService extends Service {
         Toast.makeText(this, "onCreate", Toast.LENGTH_SHORT).show();
         notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         notification = createNotification();
-        startForeground(1,notification);
+        startForeground(1, notification);
 
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        thread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                Looper.prepare();
-                looper = Looper.myLooper();
-                handler = new Handler(looper){
-                    @Override
-                    public void handleMessage(@NonNull Message msg) {
-                        super.handleMessage(msg);
-                        switch (msg.what){
-                            case 0 :
-                                Toast.makeText(MyService.this, msg.arg1 + "", Toast.LENGTH_SHORT).show();
-                                break;
-                        }
-                        looper.quit();
-                    }
-                };
-                for (int i = 0; i < 50; i++) {
-                    Log.d("BBB",i + "");
-                }
-                Message message = handler.obtainMessage();
-                message.what = 0;
-                message.arg1 = 10000000;
-                handler.sendMessage(message);
-                Looper.loop();
-
-                Log.d("BBB","The end");
+        handlerThread = new MyHandlerThread("HanlderThread");
+        handlerThread.start();
+        handler = new Handler(handlerThread.getLooper(), msg -> {
+            switch (msg.what) {
+                case 0:
+                    Toast.makeText(MyService.this, msg.arg1 + "", Toast.LENGTH_SHORT).show();
+                    break;
             }
+            handlerThread.getLooper().quit();
+
+            return false;
         });
-        thread.start();
 
 
         return START_NOT_STICKY;
@@ -83,8 +66,9 @@ public class MyService extends Service {
         super.onDestroy();
         Toast.makeText(this, "onDestroy", Toast.LENGTH_SHORT).show();
     }
-    private Notification createNotification(){
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this,"CHANNEL_ID");
+
+    private Notification createNotification() {
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "CHANNEL_ID");
         builder.setSmallIcon(android.R.drawable.star_on);
         builder.setShowWhen(true);
         builder.setContentTitle("Thông báo!!");
@@ -93,7 +77,7 @@ public class MyService extends Service {
 
         NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel notificationChannel = new NotificationChannel(
                     "CHANNEL_ID",
                     "demo",
@@ -103,5 +87,25 @@ public class MyService extends Service {
             notificationManager.createNotificationChannel(notificationChannel);
         }
         return builder.build();
+    }
+
+    class MyHandlerThread extends HandlerThread {
+
+        public MyHandlerThread(String name) {
+            super(name);
+        }
+
+        @Override
+        protected void onLooperPrepared() {
+            super.onLooperPrepared();
+            for (int i = 0; i < 50; i++) {
+                Log.d("BBB",i + "");
+            }
+            Message message = handler.obtainMessage();
+            message.what = 0;
+            message.arg1 = 10000000;
+            message.sendToTarget();
+            Log.d("BBB", "The end");
+        }
     }
 }
