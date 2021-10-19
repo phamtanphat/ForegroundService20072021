@@ -7,6 +7,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.media.MediaPlayer;
 import android.os.Binder;
 import android.os.Build;
@@ -20,6 +21,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
 
 public class MyService extends Service {
@@ -27,15 +29,16 @@ public class MyService extends Service {
     NotificationManager notificationManager;
     Notification notification;
     MediaPlayer mMediaPlayer;
-    OnListenCurrentTimeSong mOnListenCurrentTimeSong;
+    Song song;
+    Handler handler;
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
         return new MyBind();
     }
 
-    class MyBind extends Binder{
-        public MyService getService(){
+    class MyBind extends Binder {
+        public MyService getService() {
             return MyService.this;
         }
     }
@@ -47,24 +50,13 @@ public class MyService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null){
-            Song song = intent.getParcelableExtra("song");
+        if (intent != null) {
+            song = intent.getParcelableExtra("song");
             startMp3(song);
-            notification = createNotification(this, 0,song.name);
-            startForeground(1,notification);
-            new Handler().postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    int currentTime = mMediaPlayer.getCurrentPosition();
-                    if (currentTime <= mMediaPlayer.getDuration()){
-                        notification = createNotification(getApplicationContext(),currentTime , song.name);
-                        new Handler().postDelayed(this,1000);
-                        if (mOnListenCurrentTimeSong != null){
-                            mOnListenCurrentTimeSong.onCurrentTime(currentTime);
-                        }
-                    }
-                }
-            },1000);
+            notification = createNotification(this, 0, song.name);
+            startForeground(1, notification);
+            handler = new Handler();
+            handler.postDelayed(runnable,1000);
         }
         return START_NOT_STICKY;
     }
@@ -72,12 +64,14 @@ public class MyService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        stopMp3();
     }
 
+
     private void startMp3(Song song) {
-        if (mMediaPlayer == null){
+        if (mMediaPlayer == null) {
             mMediaPlayer = MediaPlayer.create(this, song.resourceMp3);
-        }else if (mMediaPlayer.isPlaying()){
+        } else if (mMediaPlayer.isPlaying()) {
             mMediaPlayer.stop();
             mMediaPlayer.release();
             mMediaPlayer = MediaPlayer.create(this, song.resourceMp3);
@@ -90,9 +84,19 @@ public class MyService extends Service {
         });
     }
 
-    private Notification createNotification(Context context, long duration , String title) {
+    private void stopMp3() {
+        if (mMediaPlayer == null) {
+            return;
+        }
+        mMediaPlayer.stop();
+        mMediaPlayer.release();
+        mMediaPlayer = null;
+        handler.removeCallbacks(runnable);
+    }
 
-        Intent intent = new Intent(this,MainActivity.class);
+    private Notification createNotification(Context context, long duration, String title) {
+
+        Intent intent = new Intent(this, MainActivity.class);
 
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 this,
@@ -104,11 +108,11 @@ public class MyService extends Service {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, "CHANNEL_ID");
         builder.setSmallIcon(R.drawable.ic_launcher_foreground);
         builder.setContentTitle(title);
-        builder.addAction(R.mipmap.ic_launcher,"Open App",pendingIntent);
+        builder.addAction(R.mipmap.ic_launcher, "Open App", pendingIntent);
 
-        long minus = (duration / 60000) ;
+        long minus = (duration / 60000);
         long second = (duration % 60000) / 1000;
-        builder.setContentText("Current time song : " + "0" +minus + " : " + (second >= 10 ? second : "0" +second));
+        builder.setContentText("Current time song : " + "0" + minus + " : " + (second >= 10 ? second : "0" + second));
         builder.setShowWhen(true);
         builder.setSound(null);
         builder.setPriority(Notification.PRIORITY_DEFAULT);
@@ -117,13 +121,21 @@ public class MyService extends Service {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel notificationChannel = new NotificationChannel("CHANNEL_ID", "CHANNEL_NAME", NotificationManager.IMPORTANCE_HIGH);
-            notificationChannel.setSound(null , null);
+            notificationChannel.setSound(null, null);
             notificationManager.createNotificationChannel(notificationChannel);
         }
         return builder.build();
     }
-    public void setOnListCurrentTimeSong(OnListenCurrentTimeSong onListCurrentTimeSong){
-        this.mOnListenCurrentTimeSong = onListCurrentTimeSong;
-    }
-
+    private Runnable runnable = new Runnable() {
+        @Override
+        public void run() {
+            if (mMediaPlayer != null){
+                if (song != null && song.name.length() > 0){
+                    notification = createNotification(MyService.this,mMediaPlayer.getCurrentPosition(),song.name);
+                    notificationManager.notify(1,notification);
+                    handler.postDelayed(this,1000);
+                }
+            }
+        }
+    };
 }
