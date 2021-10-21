@@ -67,6 +67,11 @@ public class MyService extends Service {
         stopMp3();
     }
 
+    @Override
+    public boolean onUnbind(Intent intent) {
+        Log.d("BBB","unBind");
+        return super.onUnbind(intent);
+    }
 
     private void startMp3(Song song) {
         if (mMediaPlayer == null) {

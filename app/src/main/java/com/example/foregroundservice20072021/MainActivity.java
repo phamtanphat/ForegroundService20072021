@@ -43,17 +43,41 @@ public class MainActivity extends AppCompatActivity {
         mBtnStopService.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                unbindService(serviceConnection);
-                Intent intent = new Intent(MainActivity.this, MyService.class);
-                stopService(intent);
+                if (mBound){
+                    unbindService(serviceConnection);
+                    Intent intent = new Intent(MainActivity.this, MyService.class);
+                    stopService(intent);
+                    mBound = false;
+                }
+
             }
         });
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (isMyServiceRunning(MyService.class)){
+            Intent intent = new Intent(MainActivity.this, MyService.class);
+            bindService(intent, serviceConnection, BIND_AUTO_CREATE);
+        }
+    }
+
+    private boolean isMyServiceRunning(Class<?> serviceClass) {
+        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (serviceClass.getName().equals(service.service.getClassName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             Log.d("BBB", "Connect");
+            mBound = true;
             MyService.MyBind myBind = (MyService.MyBind) service;
             myService = myBind.getService();
             handler = new Handler();
@@ -85,4 +109,11 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (mBound){
+            unbindService(serviceConnection);
+        }
+    }
 }
